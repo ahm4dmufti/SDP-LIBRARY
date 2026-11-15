@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\staff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +48,18 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Create a staff member and return a plain-text Sanctum token for them.
+ */
+function staffToken(): string
+{
+    return staff::create([
+        'name' => 'ali',
+        'email' => 'ali@example.com',
+        'password' => '12345678',
+        'phone' => '0790000000',
+        'position' => 'Librarian',
+    ])->createToken('t')->plainTextToken;
 }
