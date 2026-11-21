@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -27,4 +28,10 @@ class Customer extends Authenticatable
         [
             'password' => 'hashed',
         ];
+
+    public function borrowings(): BelongsToMany
+    {
+        return $this->belongsToMany(Book::class, 'borrowings')
+            ->withPivot(['borrowing_date', 'return_date', 'is_returned']);
+    }
 }

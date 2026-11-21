@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Book;
+use App\Models\Borrowing;
 use App\Models\Category;
 use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,4 +102,32 @@ it('deletes an empty category', function () {
     $this->withToken(staffToken())->deleteJson("/api/category/{$category->id}")->assertNoContent();
 
     $this->assertModelMissing($category);
+});
+
+it('searches books by name and filters them by category', function () {
+    $fiction = Category::factory()->create();
+    Book::factory()->for($fiction)->create(['name' => 'Harry Stories']);
+    Book::factory()->create(['name' => 'Charlie and Friends']);
+    Book::factory()->create(['name' => 'Physics Basics']);
+    $token = staffToken();
+
+    $this->withToken($token)->getJson('/api/book?search=har')->assertOk()->assertJsonCount(2, 'data');
+    $this->withToken($token)->getJson("/api/book?category_id={$fiction->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name', 'Harry Stories');
+    $this->withToken($token)->getJson('/api/book')->assertOk()->assertJsonCount(3, 'data');
+});
+
+it('shows a book as unavailable only while it has an open borrowing', function () {
+    $borrowing = Borrowing::factory()->create();
+    $token = staffToken();
+
+    $this->withToken($token)->getJson("/api/book/{$borrowing->book_id}")
+        ->assertJsonPath('data.is_available', false);
+
+    $borrowing->update(['is_returned' => true]);
+
+    $this->withToken($token)->getJson("/api/book/{$borrowing->book_id}")
+        ->assertJsonPath('data.is_available', true);
 });

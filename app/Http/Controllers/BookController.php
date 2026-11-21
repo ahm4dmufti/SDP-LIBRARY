@@ -6,14 +6,28 @@ use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
 class BookController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    /**
+     * Optional filters: ?search= (part of the name) and ?category_id=.
+     */
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return BookResource::collection(Book::all());
+        $query = Book::query();
+
+        if ($request->search) {
+            $query->where('name', 'like', '%'.$request->search.'%');
+        }
+
+        if ($request->category_id) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        return BookResource::collection($query->get());
     }
 
     public function store(StoreBookRequest $request): BookResource

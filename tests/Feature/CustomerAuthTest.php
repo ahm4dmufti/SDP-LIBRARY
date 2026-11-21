@@ -1,12 +1,13 @@
 <?php
 
+use App\Models\Borrowing;
 use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('registers a customer without a token and hashes the password', function () {
-    $this->postJson('/api/customer', [
+it('registers a customer, hashes the password and returns a working token', function () {
+    $token = $this->postJson('/api/customer', [
         'name' => 'omar',
         'email' => 'omar@example.com',
         'phone_number' => '0791234567',
@@ -14,10 +15,15 @@ it('registers a customer without a token and hashes the password', function () {
     ])
         ->assertCreated()
         ->assertJsonPath('customer.phone_number', '0791234567')
-        ->assertJsonMissingPath('customer.password');
+        ->assertJsonMissingPath('customer.password')
+        ->json('token');
 
     $customer = Customer::where('phone_number', '0791234567')->sole();
     expect($customer->password)->not->toBe('secret123');
+
+    $this->withToken($token)->getJson('/api/customer-me')
+        ->assertOk()
+        ->assertJsonPath('customer.id', $customer->id);
 });
 
 it('rejects a customer registration with missing fields', function () {
@@ -81,4 +87,26 @@ it('does not let a customer token open staff routes', function (string $method, 
 
 it('does not let a staff token open customer routes', function () {
     $this->withToken(staffToken())->getJson('/api/customer-me')->assertUnauthorized();
+});
+
+it('lets staff list customers and view one with their borrowed books', function () {
+    $borrowing = Borrowing::factory()->create();
+    Customer::factory()->create();
+    $token = staffToken();
+
+    $this->withToken($token)->getJson('/api/customer')
+        ->assertOk()
+        ->assertJsonCount(2)
+        ->assertJsonMissingPath('0.password');
+
+    $this->withToken($token)->getJson("/api/customer/{$borrowing->customer_id}")
+        ->assertOk()
+        ->assertJsonPath('borrowings.0.id', $borrowing->book_id)
+        ->assertJsonMissingPath('password');
+});
+
+it('does not let a customer list customers', function () {
+    $token = Customer::factory()->create()->createToken('t')->plainTextToken;
+
+    $this->withToken($token)->getJson('/api/customer')->assertUnauthorized();
 });
